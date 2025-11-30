@@ -14,7 +14,7 @@
     }
 
     #game {
-      max-width: 720px;
+      max-width: 920px;
       margin: 0 auto;
       background: #2b2d31;
       padding: 16px;
@@ -27,6 +27,14 @@
       margin-top: 0;
     }
 
+    #topBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     #playArea {
       display: flex;
       justify-content: center;
@@ -37,7 +45,7 @@
 
     #board {
       width: 420px;
-      max-width: 70vw;
+      max-width: 60vw;
       aspect-ratio: 1 / 1;
       display: grid;
       grid-template-columns: repeat(8, 1fr);
@@ -47,8 +55,8 @@
       border-radius: 6px;
     }
 
-    #capturedColumn {
-      width: 90px;
+    .capturedColumn {
+      width: 110px;
       min-height: 100px;
       padding: 8px;
       background: #1e2b1e;
@@ -57,13 +65,15 @@
       box-sizing: border-box;
     }
 
-    #capturedTitle {
+    #capturedTitleWhite,
+    #capturedTitleBlack {
       font-size: 0.9rem;
       margin-bottom: 6px;
       font-weight: 600;
     }
 
-    #capturedList {
+    #capturedListWhite,
+    #capturedListBlack {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -87,14 +97,6 @@
     .captured-piece.black {
       background: #111;
       border: 2px solid #444;
-    }
-
-    #topBar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
     }
 
     #score {
@@ -220,10 +222,19 @@
     </div>
 
     <div id="playArea">
+      <!-- VLEVO: vyřazené bílé -->
+      <div class="capturedColumn" id="capturedWhiteColumn">
+        <div id="capturedTitleWhite">Vyřazené bílé</div>
+        <div id="capturedListWhite"></div>
+      </div>
+
+      <!-- UPROSTŘED: hrací deska -->
       <div id="board"></div>
-      <div id="capturedColumn">
-        <div id="capturedTitle">Vyřazené<br>kameny</div>
-        <div id="capturedList"></div>
+
+      <!-- VPRAVO: vyřazené černé -->
+      <div class="capturedColumn" id="capturedBlackColumn">
+        <div id="capturedTitleBlack">Vyřazené černé</div>
+        <div id="capturedListBlack"></div>
       </div>
     </div>
 
@@ -242,8 +253,10 @@
     const scoreBlackEl = document.getElementById("scoreBlack");
     const overlayEl = document.getElementById("overlay");
     const overlayTextEl = document.getElementById("overlayText");
-    const capturedListEl = document.getElementById("capturedList");
     const newGameBtn = document.getElementById("newGameBtn");
+
+    const capturedListWhiteEl = document.getElementById("capturedListWhite");
+    const capturedListBlackEl = document.getElementById("capturedListBlack");
 
     const SIZE = 8;
     let board = [];
@@ -256,8 +269,9 @@
     let scoreWhite = 0;
     let scoreBlack = 0;
 
-    // seznam vyřazených kamenů (v pořadí, v jakém padly)
-    let capturedPieces = [];
+    // vyřazené kameny zvlášť: bílé vlevo, černé vpravo
+    let capturedWhitePieces = []; // vyřazené bílé
+    let capturedBlackPieces = []; // vyřazené černé
 
     newGameBtn.addEventListener("click", () => {
       initBoard();
@@ -272,10 +286,12 @@
         Array.from({ length: SIZE }, () => null)
       );
 
+      // černé nahoře
       for (let r = 0; r < 3; r++)
         for (let c = 0; c < SIZE; c++)
           if ((r + c) % 2 === 1) board[r][c] = createPiece("b", false);
 
+      // bílé dole
       for (let r = 5; r < 8; r++)
         for (let c = 0; c < SIZE; c++)
           if ((r + c) % 2 === 1) board[r][c] = createPiece("w", false);
@@ -285,8 +301,10 @@
       scoreWhite = 0;
       scoreBlack = 0;
       gameOver = false;
-      capturedPieces = [];
-      updateCapturedDisplay();
+
+      capturedWhitePieces = [];
+      capturedBlackPieces = [];
+      updateCapturedDisplays();
 
       overlayEl.classList.add("hidden");
       updateScore();
@@ -309,26 +327,44 @@
       scoreBlackEl.textContent = `Černý ⚫: ${scoreBlack}`;
     }
 
-    function updateCapturedDisplay() {
-      capturedListEl.innerHTML = "";
-      capturedPieces.forEach(p => {
+    function updateCapturedDisplays() {
+      // bílé vlevo
+      capturedListWhiteEl.innerHTML = "";
+      capturedWhitePieces.forEach(p => {
         const div = document.createElement("div");
-        div.classList.add("captured-piece");
-        div.classList.add(p.player === "w" ? "white" : "black");
+        div.classList.add("captured-piece", "white");
         if (p.king) {
           const crown = document.createElement("div");
           crown.className = "crown";
           crown.textContent = "👑";
           div.appendChild(crown);
         }
-        capturedListEl.appendChild(div);
+        capturedListWhiteEl.appendChild(div);
+      });
+
+      // černé vpravo
+      capturedListBlackEl.innerHTML = "";
+      capturedBlackPieces.forEach(p => {
+        const div = document.createElement("div");
+        div.classList.add("captured-piece", "black");
+        if (p.king) {
+          const crown = document.createElement("div");
+          crown.className = "crown";
+          crown.textContent = "👑";
+          div.appendChild(crown);
+        }
+        capturedListBlackEl.appendChild(div);
       });
     }
 
     function addCapturedPiece(piece) {
       if (!piece) return;
-      capturedPieces.push({ player: piece.player, king: piece.king });
-      updateCapturedDisplay();
+      if (piece.player === "w") {
+        capturedWhitePieces.push({ player: piece.player, king: piece.king });
+      } else if (piece.player === "b") {
+        capturedBlackPieces.push({ player: piece.player, king: piece.king });
+      }
+      updateCapturedDisplays();
     }
 
     function render() {
