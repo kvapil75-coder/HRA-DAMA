@@ -184,20 +184,6 @@
       pointer-events: none;
     }
 
-    /* blikání povinných kamenů */
-    @keyframes blink-red {
-      0%, 100% {
-        box-shadow: 0 0 6px rgba(255, 0, 0, 0.9);
-      }
-      50% {
-        box-shadow: 0 0 16px rgba(255, 0, 0, 1);
-      }
-    }
-
-    .piece.forced-capture {
-      animation: blink-red 0.7s infinite;
-    }
-
     #info {
       margin-top: 8px;
       font-weight: bold;
@@ -315,13 +301,12 @@
     let scoreWhite = 0;
     let scoreBlack = 0;
 
+    // režimy: "vsAI" nebo "twoPlayers"
     let gameMode = "vsAI";
 
+    // vyřazené kameny
     let capturedWhitePieces = [];
     let capturedBlackPieces = [];
-
-    // kameny, které MUSÍ brát (blikají)
-    let forcedCapturePositions = [];
 
     mode1Btn.addEventListener("click", () => {
       setMode("vsAI");
@@ -373,7 +358,6 @@
 
       overlayEl.classList.add("hidden");
       updateScore();
-      refreshForcedCaptures();
       render();
       updateInfo();
     }
@@ -458,14 +442,6 @@
             pieceEl.classList.add("piece");
             pieceEl.classList.add(cell.player === WHITE ? "white" : "black");
 
-            // je tento kámen mezi povinnými?
-            const isForced = forcedCapturePositions.some(
-              p => p.r === r && p.c === c
-            );
-            if (isForced) {
-              pieceEl.classList.add("forced-capture");
-            }
-
             if (cell.king) {
               pieceEl.classList.add("king");
               const crown = document.createElement("div");
@@ -538,30 +514,9 @@
       return moves;
     }
 
-    function computeForcedCaptures(player) {
-      const moves = getAllMovesFor(player);
-      const captureMoves = moves.filter(m => m.capture);
-      const positions = [];
-      captureMoves.forEach(m => {
-        if (!positions.some(p => p.r === m.from.r && p.c === m.from.c)) {
-          positions.push({ r: m.from.r, c: m.from.c });
-        }
-      });
-      return positions;
-    }
-
-    function refreshForcedCaptures() {
-      if (gameOver) {
-        forcedCapturePositions = [];
-        return;
-      }
-      forcedCapturePositions = computeForcedCaptures(currentPlayer);
-    }
-
     function showWinner(player) {
       gameOver = true;
       currentPlayer = null;
-      forcedCapturePositions = [];
 
       overlayTextEl.textContent =
         player === WHITE ? "Bílý vyhrál!" : "Černý vyhrál!";
@@ -581,7 +536,14 @@
       return null;
     }
 
-    // pravidla skákání + povinné braní
+    // PRAVIDLA SKÁKÁNÍ:
+    // - obyčejný kámen:
+    //   * nemůže přeskočit dva soupeře hned za sebou (enemy, enemy)
+    //   * může přeskočit více soupeřů, pokud je mezi nimi vždy aspoň jedno prázdné pole
+    //   * může skákat jen dopředu
+    // - král:
+    //   * může skákat přes více volných polí
+    //   * může brát libovolný počet kamenů v cestě
     function validateMove(player, r1, c1, r2, c2) {
       if (!isOnBoard(r1, c1) || !isOnBoard(r2, c2)) return { valid: false };
       const piece = board[r1][c1];
@@ -596,7 +558,7 @@
       const stepC = dc > 0 ? 1 : -1;
       const dist = Math.abs(dr);
 
-      // KRÁL – může skákat přes více polí (i dozadu)
+      // KRÁL
       if (piece.king) {
         const captured = [];
         let r = r1 + stepR;
@@ -624,7 +586,7 @@
       if (stepR !== forwardDir) return { valid: false };
 
       // jednoduchý tah o jedno pole
-      if (dist === 1) return { valid: true, capture: false, captured: [] };
+      if (dist === 1) return { valid: true };
 
       // skok – možnost více kamenů, ale bez dvou soupeřů za sebou
       const captured = [];
@@ -636,10 +598,11 @@
         const cell = board[r][c];
 
         if (!cell) {
+          // prázdné pole – přerušuje řadu nepřátel
           lastWasEnemy = false;
         } else {
           if (cell.player === player) {
-            // vlastní kámen blokuje tah
+            // vlastní kámen blokuje cestu
             return { valid: false };
           } else {
             // nepřítel
@@ -691,33 +654,13 @@
     function attemptMove(player, r1, c1, r2, c2) {
       if (gameOver) return;
 
-      // povinné braní: zjistíme, jestli existují nějaké braní
-      const allMoves = getAllMovesFor(player);
-      const captureMoves = allMoves.filter(m => m.capture);
-      const forced = captureMoves.length > 0;
-
       const res = validateMove(player, r1, c1, r2, c2);
-
-      // tah je neplatný, nebo je povinné braní a hráč nebere
-      if (!res.valid || (forced && !res.capture)) {
-        if (forced) {
-          // zvýrazníme kameny, které MUSÍ brát
-          forcedCapturePositions = [];
-          captureMoves.forEach(m => {
-            if (!forcedCapturePositions.some(p => p.r === m.from.r && p.c === m.from.c)) {
-              forcedCapturePositions.push({ r: m.from.r, c: m.from.c });
-            }
-          });
-          updateInfo("Musíš sebrat kámen!");
-        } else {
-          updateInfo();
-        }
+      if (!res.valid) {
         selected = null;
         render();
         return;
       }
 
-      // tah je v pořádku (a pokud bylo povinné braní, tak je to opravdu bránící tah)
       performMove(player, r1, c1, r2, c2, {
         capture: res.capture,
         captured: res.captured || []
@@ -725,10 +668,10 @@
 
       updateScore();
       selected = null;
+      render();
 
       const winner = checkWinner();
       if (winner) {
-        render();
         showWinner(winner);
         return;
       }
@@ -736,20 +679,14 @@
       if (gameMode === "vsAI") {
         if (player === WHITE) {
           currentPlayer = BLACK;
-          refreshForcedCaptures();
-          render();
           updateInfo();
           setTimeout(makeAIMove, 500);
         } else {
           currentPlayer = WHITE;
-          refreshForcedCaptures();
-          render();
           updateInfo();
         }
       } else {
         currentPlayer = (player === WHITE) ? BLACK : WHITE;
-        refreshForcedCaptures();
-        render();
         updateInfo();
       }
     }
@@ -764,7 +701,6 @@
         return;
       }
 
-      // AI už povinné braní dodržuje – vždy preferuje captureMoves
       const captureMoves = moves.filter(m => m.capture);
       const pool = captureMoves.length ? captureMoves : moves;
       const chosen = pool[Math.floor(Math.random() * pool.length)];
@@ -779,17 +715,15 @@
       );
 
       updateScore();
+      render();
 
       const winner = checkWinner();
       if (winner) {
-        render();
         showWinner(winner);
         return;
       }
 
       currentPlayer = WHITE;
-      refreshForcedCaptures();
-      render();
       updateInfo();
     }
 
