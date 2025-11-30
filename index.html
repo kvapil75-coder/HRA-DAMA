@@ -7,7 +7,7 @@
   <style>
     body {
       font-family: system-ui, sans-serif;
-      background: #003300;   /* tmavě zelené pozadí */
+      background: #003300;
       color: #fff;
       text-align: center;
       padding: 20px;
@@ -27,7 +27,6 @@
       margin-top: 0;
     }
 
-    /* HORNÍ BLOK – instrukce + tlačítka módu pod sebou, vycentrované */
     #topBar {
       display: flex;
       flex-direction: column;
@@ -79,19 +78,19 @@
       aspect-ratio: 1 / 1;
       display: grid;
       grid-template-columns: repeat(8, 1fr);
-
-      border: 6px solid #ff0000;   /* ČERVENÝ RÁM */
-      box-shadow: 0 0 12px #ff0000; /* jemná červená záře */
+      border: 6px solid #ff0000;
+      box-shadow: 0 0 12px #ff0000;
       border-radius: 6px;
     }
 
+    /* stejné jako tmavé pole */
     .capturedColumn {
       width: 110px;
       min-height: 100px;
       padding: 8px;
-      background: #1e2b1e;
+      background: #b58863;
       border-radius: 8px;
-      border: 2px solid #445;
+      border: 2px solid #8a6245;
       box-sizing: border-box;
     }
 
@@ -195,7 +194,6 @@
       min-height: 1.5em;
     }
 
-    /* Overlay výhry */
     #overlay {
       position: absolute;
       inset: 0;
@@ -255,23 +253,20 @@
         <button id="mode2Btn" class="modeBtn">2 HRÁČI</button>
       </div>
     </div>
-    
+
     <div id="score">
-      <span id="scoreWhite">Bílý ⚪: 0</span> | 
+      <span id="scoreWhite">Bílý ⚪: 0</span> |
       <span id="scoreBlack">Černý ⚫: 0</span>
     </div>
 
     <div id="playArea">
-      <!-- VLEVO: vyřazené bílé -->
       <div class="capturedColumn" id="capturedWhiteColumn">
         <div id="capturedTitleWhite">Vyřazené bílé</div>
         <div id="capturedListWhite"></div>
       </div>
 
-      <!-- UPROSTŘED: hrací deska -->
       <div id="board"></div>
 
-      <!-- VPRAVO: vyřazené černé -->
       <div class="capturedColumn" id="capturedBlackColumn">
         <div id="capturedTitleBlack">Vyřazené černé</div>
         <div id="capturedListBlack"></div>
@@ -280,7 +275,6 @@
 
     <div id="info"></div>
 
-    <!-- Overlay pro výhru -->
     <div id="overlay" class="hidden">
       <div id="overlayContent">
         <div id="overlayText"></div>
@@ -316,12 +310,12 @@
     let scoreWhite = 0;
     let scoreBlack = 0;
 
-    // režimy hry: "vsAI" nebo "twoPlayers"
+    // režimy: "vsAI" nebo "twoPlayers"
     let gameMode = "vsAI";
 
-    // vyřazené kameny zvlášť: bílé vlevo, černé vpravo
-    let capturedWhitePieces = []; // vyřazené bílé
-    let capturedBlackPieces = []; // vyřazené černé
+    // vyřazené kameny
+    let capturedWhitePieces = [];
+    let capturedBlackPieces = [];
 
     mode1Btn.addEventListener("click", () => {
       setMode("vsAI");
@@ -401,7 +395,6 @@
     }
 
     function updateCapturedDisplays() {
-      // bílé vlevo
       capturedListWhiteEl.innerHTML = "";
       capturedWhitePieces.forEach(p => {
         const div = document.createElement("div");
@@ -415,7 +408,6 @@
         capturedListWhiteEl.appendChild(div);
       });
 
-      // černé vpravo
       capturedListBlackEl.innerHTML = "";
       capturedBlackPieces.forEach(p => {
         const div = document.createElement("div");
@@ -479,7 +471,7 @@
     function handleClick(row, col) {
       if (gameOver) return;
 
-      // ve hře proti automatu hráč nesmí táhnout, když je na tahu AI
+      // proti automatu smí kliknout jen bílý
       if (gameMode === "vsAI" && currentPlayer !== WHITE) return;
 
       const cell = board[row][col];
@@ -627,7 +619,6 @@
         moveData.captured.forEach(pos => {
           const captured = board[pos.r][pos.c];
           if (captured) {
-            // skóre podle barvy sebraného kamene
             if (captured.player === BLACK) scoreWhite++;
             else if (captured.player === WHITE) scoreBlack++;
             addCapturedPiece(captured);
