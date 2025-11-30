@@ -14,7 +14,7 @@
     }
 
     #game {
-      max-width: 520px;
+      max-width: 720px;
       margin: 0 auto;
       background: #2b2d31;
       padding: 16px;
@@ -23,22 +23,98 @@
       position: relative;
     }
 
+    h2 {
+      margin-top: 0;
+    }
+
+    #playArea {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
     #board {
-      margin: 16px auto;
       width: 420px;
-      max-width: 90vw;
+      max-width: 70vw;
       aspect-ratio: 1 / 1;
       display: grid;
       grid-template-columns: repeat(8, 1fr);
 
-      border: 6px solid #a020f0;   /* FIALOVÝ RÁM */
-      box-shadow: 0 0 12px #a020f0; /* jemná fialová záře */
+      border: 6px solid #ff0000;   /* ČERVENÝ RÁM */
+      box-shadow: 0 0 12px #ff0000; /* jemná červená záře */
       border-radius: 6px;
+    }
+
+    #capturedColumn {
+      width: 90px;
+      min-height: 100px;
+      padding: 8px;
+      background: #1e2b1e;
+      border-radius: 8px;
+      border: 2px solid #445;
+      box-sizing: border-box;
+    }
+
+    #capturedTitle {
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    #capturedList {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .captured-piece {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      position: relative;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .captured-piece.white {
+      background: #fafafa;
+      border: 2px solid #ddd;
+    }
+
+    .captured-piece.black {
+      background: #111;
+      border: 2px solid #444;
+    }
+
+    #topBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     #score {
       margin-top: 8px;
       font-weight: 600;
+    }
+
+    #newGameBtn {
+      margin-top: 8px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      background: #4caf50;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    #newGameBtn:hover {
+      background: #43a047;
     }
 
     .square {
@@ -127,21 +203,30 @@
 
 <body>
   <div id="game">
-    <!-- 🔥 UPRAVENÝ NADPIS -->
     <h2>👑 DÁMA 👑 – HRAJEŠ PROTI AUTOMATU</h2>
 
-    <p>
-      Hraješ za <strong>BÍLÉ (⚪)</strong> a táhneš nahoru.<br>
-      Klikni na svoji figurku a pak na cílové pole. Automat hraje za <strong>ČERNÉ (⚫)</strong>.<br>
-      Kámen na konci se změní na <strong>dámu 👑</strong> a může chodit i zpět i o více polí.
-    </p>
+    <div id="topBar">
+      <p style="margin:0;">
+        Hraješ za <strong>BÍLÉ ⚪</strong> a táhneš nahoru.<br>
+        Klikni na svoji figurku a pak na cílové pole. Automat hraje za <strong>ČERNÉ ⚫</strong>.<br>
+        Kámen na konci se změní na <strong>dámu 👑</strong> a může chodit i zpět i o více polí.
+      </p>
+      <button id="newGameBtn">Nová hra</button>
+    </div>
     
     <div id="score">
-      <span id="scoreWhite">Bílý (⚪): 0</span> | 
-      <span id="scoreBlack">Černý (⚫): 0</span>
+      <span id="scoreWhite">Bílý ⚪: 0</span> | 
+      <span id="scoreBlack">Černý ⚫: 0</span>
     </div>
 
-    <div id="board"></div>
+    <div id="playArea">
+      <div id="board"></div>
+      <div id="capturedColumn">
+        <div id="capturedTitle">Vyřazené<br>kameny</div>
+        <div id="capturedList"></div>
+      </div>
+    </div>
+
     <div id="info"></div>
 
     <!-- Overlay pro výhru -->
@@ -157,6 +242,8 @@
     const scoreBlackEl = document.getElementById("scoreBlack");
     const overlayEl = document.getElementById("overlay");
     const overlayTextEl = document.getElementById("overlayText");
+    const capturedListEl = document.getElementById("capturedList");
+    const newGameBtn = document.getElementById("newGameBtn");
 
     const SIZE = 8;
     let board = [];
@@ -168,6 +255,13 @@
 
     let scoreWhite = 0;
     let scoreBlack = 0;
+
+    // seznam vyřazených kamenů (v pořadí, v jakém padly)
+    let capturedPieces = [];
+
+    newGameBtn.addEventListener("click", () => {
+      initBoard();
+    });
 
     function createPiece(player, king = false) {
       return { player, king };
@@ -191,6 +285,8 @@
       scoreWhite = 0;
       scoreBlack = 0;
       gameOver = false;
+      capturedPieces = [];
+      updateCapturedDisplay();
 
       overlayEl.classList.add("hidden");
       updateScore();
@@ -209,8 +305,30 @@
     }
 
     function updateScore() {
-      scoreWhiteEl.textContent = `Bílý (⚪): ${scoreWhite}`;
-      scoreBlackEl.textContent = `Černý (⚫): ${scoreBlack}`;
+      scoreWhiteEl.textContent = `Bílý ⚪: ${scoreWhite}`;
+      scoreBlackEl.textContent = `Černý ⚫: ${scoreBlack}`;
+    }
+
+    function updateCapturedDisplay() {
+      capturedListEl.innerHTML = "";
+      capturedPieces.forEach(p => {
+        const div = document.createElement("div");
+        div.classList.add("captured-piece");
+        div.classList.add(p.player === "w" ? "white" : "black");
+        if (p.king) {
+          const crown = document.createElement("div");
+          crown.className = "crown";
+          crown.textContent = "👑";
+          div.appendChild(crown);
+        }
+        capturedListEl.appendChild(div);
+      });
+    }
+
+    function addCapturedPiece(piece) {
+      if (!piece) return;
+      capturedPieces.push({ player: piece.player, king: piece.king });
+      updateCapturedDisplay();
     }
 
     function render() {
@@ -405,8 +523,9 @@
 
       if (res.capture)
         for (const pos of res.captured) {
-          if (board[pos.r][pos.c] && board[pos.r][pos.c].player === aiPlayer)
-            scoreWhite++;
+          const captured = board[pos.r][pos.c];
+          if (captured && captured.player === aiPlayer) scoreWhite++;
+          addCapturedPiece(captured);
           board[pos.r][pos.c] = null;
         }
 
@@ -430,15 +549,8 @@
       if (moves.length === 0) return showWinner(humanPlayer);
 
       const captureMoves = moves.filter(m => m.capture);
-      const chosen =
-        (captureMoves.length
-          ? captureMoves
-          : moves)[
-          Math.floor(
-            Math.random() *
-              (captureMoves.length ? captureMoves.length : moves.length)
-          )
-        ];
+      const pool = captureMoves.length ? captureMoves : moves;
+      const chosen = pool[Math.floor(Math.random() * pool.length)];
 
       const from = chosen.from;
       const to = chosen.to;
@@ -449,8 +561,9 @@
 
       if (chosen.capture)
         for (const pos of chosen.captured) {
-          if (board[pos.r][pos.c] && board[pos.r][pos.c].player === humanPlayer)
-            scoreBlack++;
+          const captured = board[pos.r][pos.c];
+          if (captured && captured.player === humanPlayer) scoreBlack++;
+          addCapturedPiece(captured);
           board[pos.r][pos.c] = null;
         }
 
