@@ -1,1 +1,124 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dáma – hráč vs. automat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #202124;
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
 
+    #game {
+      max-width: 520px;
+      margin: 0 auto;
+      background: #2b2d31;
+      padding: 16px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    #board {
+      margin: 16px auto;
+      width: 420px;
+      max-width: 90vw;
+      aspect-ratio: 1 / 1;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border: 4px solid #444;
+    }
+
+    #score {
+      margin-top: 8px;
+      font-weight: 600;
+    }
+
+    .square {
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    .light {
+      background: #f0d9b5;
+    }
+
+    .dark {
+      background: #b58863;
+    }
+
+    .square.selected {
+      outline: 3px solid #ffeb3b;
+      outline-offset: -3px;
+    }
+
+    .piece {
+      width: 70%;
+      height: 70%;
+      border-radius: 50%;
+      margin: auto;
+      margin-top: 15%;
+      box-sizing: border-box;
+      cursor: pointer;
+      position: relative;
+      display: block;
+      overflow: hidden;
+    }
+
+    .piece.white {
+      background: #fafafa;
+      border: 2px solid #ddd;
+    }
+
+    .piece.black {
+      background: #111;
+      border: 2px solid #444;
+    }
+
+    .piece.king {
+      box-shadow: 0 0 6px rgba(255, 215, 0, 0.9);
+    }
+
+    .crown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 16px;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    #info {
+      margin-top: 8px;
+      font-weight: bold;
+      min-height: 1.5em;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <h2>Dáma – hráč vs. automat (s dámou 👑)</h2>
+    <p>
+      Hraješ za <strong>BÍLÉ (⚪)</strong> a táhneš nahoru.<br>
+      Klikni na svoji figurku a pak na cílové pole. Automat hraje za <strong>ČERNÉ (⚫)</strong>.<br>
+      Kámen, který dojde na konec, se změní na <strong>dámu 👑</strong> a může chodit i zpět a o více polí.
+    </p>
+
+    <div id="score">
+      <span id="scoreWhite">Bílý (⚪): 0</span> | 
+      <span id="scoreBlack">Černý (⚫): 0</span>
+    </div>
+
+    <div id="board"></div>
+    <div id="info"></div>
+  </div>
+
+  <script>
+    /* JS omitted for brevity in this placeholder */
+  </script>
+</body>
+</html>
