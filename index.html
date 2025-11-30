@@ -27,12 +27,17 @@
       margin-top: 0;
     }
 
+    /* HORNÍ BLOK – text + tlačítko pod sebou, vycentrované */
     #topBar {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
+    }
+
+    #instructions {
+      margin: 0;
+      text-align: center;
     }
 
     #playArea {
@@ -105,7 +110,7 @@
     }
 
     #newGameBtn {
-      margin-top: 8px;
+      margin-top: 4px;
       padding: 6px 12px;
       border-radius: 6px;
       border: none;
@@ -230,7 +235,7 @@
     <h2>👑 DÁMA 👑 – HRAJEŠ PROTI AUTOMATU</h2>
 
     <div id="topBar">
-      <p style="margin:0;">
+      <p id="instructions">
         Hraješ za BÍLÉ ⚪ a táhneš nahoru.<br>
         Klikni na svoji figurku a pak na cílové pole. Automat hraje za ČERNÉ ⚫.<br>
         Kámen na konci se změní na dámu 👑 a může chodit i zpět i o více polí.
