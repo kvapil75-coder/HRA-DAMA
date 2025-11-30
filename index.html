@@ -25,6 +25,7 @@
 
     h2 {
       margin-top: 0;
+      font-size: 2.4rem; /* zvětšený nadpis */
     }
 
     #topBar {
@@ -32,11 +33,7 @@
       flex-direction: column;
       align-items: center;
       gap: 8px;
-    }
-
-    #instructions {
-      margin: 0;
-      text-align: center;
+      margin-bottom: 8px;
     }
 
     #modeButtons {
@@ -87,9 +84,9 @@
       width: 110px;
       min-height: 100px;
       padding: 8px;
-      background: #b58863;
+      background: #b58863;        /* stejná jako tmavé pole */
       border-radius: 8px;
-      border: 2px solid #8a6245;
+      border: 2px solid #8a6245;  /* jemně tmavší okraj */
       box-sizing: border-box;
     }
 
@@ -242,11 +239,6 @@
     <h2>👑 DÁMA 👑</h2>
 
     <div id="topBar">
-      <p id="instructions">
-        Vyber mód hry. V módu 1 hráč hraješ za BÍLÉ ⚪ a táhneš nahoru.<br>
-        Klikni na svoji figurku a pak na cílové pole. Automat hraje za ČERNÉ ⚫.<br>
-        Kámen na konci se změní na dámu 👑 a může chodit i zpět i o více polí.
-      </p>
       <div id="modeButtons">
         <button id="mode1Btn" class="modeBtn">1 HRÁČ</button>
         <button id="mode2Btn" class="modeBtn">2 HRÁČI</button>
@@ -527,7 +519,7 @@
       currentPlayer = null;
 
       overlayTextEl.textContent =
-        player === WHITE ? "Bílý vyhrál" : "Černý vyhrál";
+        player === WHITE ? "Bílý vyhrál!" : "Černý vyhrál!";
 
       overlayEl.classList.remove("hidden");
       updateInfo();
@@ -544,9 +536,14 @@
       return null;
     }
 
-    // NOVÁ PRAVIDLA SKÁKÁNÍ PRO OBYČEJNÝ KÁMEN:
-    // - nemůže přeskočit dva soupeřovy kameny hned za sebou
-    // - mezi dvěma soupeřovými kameny musí být vždy alespoň jedno prázdné pole
+    // PRAVIDLA SKÁKÁNÍ:
+    // - obyčejný kámen:
+    //   * nemůže přeskočit dva soupeře hned za sebou (enemy, enemy)
+    //   * může přeskočit více soupeřů, pokud je mezi nimi vždy aspoň jedno prázdné pole
+    //   * může skákat jen dopředu
+    // - král:
+    //   * může skákat přes více volných polí
+    //   * může brát libovolný počet kamenů v cestě
     function validateMove(player, r1, c1, r2, c2) {
       if (!isOnBoard(r1, c1) || !isOnBoard(r2, c2)) return { valid: false };
       const piece = board[r1][c1];
@@ -561,7 +558,7 @@
       const stepC = dc > 0 ? 1 : -1;
       const dist = Math.abs(dr);
 
-      // KRÁL – může skákat přes více volných polí, zachováváme původní chování
+      // KRÁL
       if (piece.king) {
         const captured = [];
         let r = r1 + stepR;
@@ -591,7 +588,7 @@
       // jednoduchý tah o jedno pole
       if (dist === 1) return { valid: true };
 
-      // skok s možností více kamenů, ale bez dvou soupeřů za sebou
+      // skok – možnost více kamenů, ale bez dvou soupeřů za sebou
       const captured = [];
       let r = r1 + stepR;
       let c = c1 + stepC;
@@ -601,11 +598,11 @@
         const cell = board[r][c];
 
         if (!cell) {
-          // prázdné pole – přerušuje případnou řadu nepřátel
+          // prázdné pole – přerušuje řadu nepřátel
           lastWasEnemy = false;
         } else {
           if (cell.player === player) {
-            // vlastní kámen v cestě – neplatný tah
+            // vlastní kámen blokuje cestu
             return { valid: false };
           } else {
             // nepřítel
@@ -622,7 +619,6 @@
         c += stepC;
       }
 
-      // musí být alespoň jeden sebraný kámen
       if (captured.length === 0) return { valid: false };
 
       return { valid: true, capture: true, captured };
