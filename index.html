@@ -184,6 +184,20 @@
       pointer-events: none;
     }
 
+    /* bliknutí povinných kamenů (3x) */
+    @keyframes blink-red-3x {
+      0%, 100% {
+        box-shadow: 0 0 6px rgba(255, 0, 0, 0.9);
+      }
+      50% {
+        box-shadow: 0 0 16px rgba(255, 0, 0, 1);
+      }
+    }
+
+    .forced-flash {
+      animation: blink-red-3x 0.5s 3;
+    }
+
     #info {
       margin-top: 8px;
       font-weight: bold;
@@ -514,6 +528,38 @@
       return moves;
     }
 
+    function computeForcedCaptures(player) {
+      const moves = getAllMovesFor(player);
+      const captureMoves = moves.filter(m => m.capture);
+      const positions = [];
+      captureMoves.forEach(m => {
+        if (!positions.some(p => p.r === m.from.r && p.c === m.from.c)) {
+          positions.push({ r: m.from.r, c: m.from.c });
+        }
+      });
+      return { captureMoves, positions };
+    }
+
+    function flashForcedPieces(positions) {
+      // znovu vykreslíme, aby byl DOM čerstvý
+      render();
+      const squares = boardEl.children;
+      for (let i = 0; i < squares.length; i++) {
+        const sq = squares[i];
+        const r = parseInt(sq.dataset.row, 10);
+        const c = parseInt(sq.dataset.col, 10);
+        const hasForced = positions.some(p => p.r === r && p.c === c);
+        if (hasForced && sq.firstChild && sq.firstChild.classList.contains("piece")) {
+          sq.firstChild.classList.add("forced-flash");
+        }
+      }
+      // po krátké době tří bliknutí třídu odstraníme
+      setTimeout(() => {
+        const pieces = boardEl.querySelectorAll(".forced-flash");
+        pieces.forEach(p => p.classList.remove("forced-flash"));
+      }, 2000);
+    }
+
     function showWinner(player) {
       gameOver = true;
       currentPlayer = null;
@@ -538,12 +584,11 @@
 
     // PRAVIDLA SKÁKÁNÍ:
     // - obyčejný kámen:
-    //   * nemůže přeskočit dva soupeře hned za sebou (enemy, enemy)
-    //   * může přeskočit více soupeřů, pokud je mezi nimi vždy aspoň jedno prázdné pole
-    //   * může skákat jen dopředu
+    //   * tah: dopředu o 1 pole
+    //   * brání: jen když je soupeř přímo vedle (diagonálně) a za ním volné pole (skok o 2)
     // - král:
-    //   * může skákat přes více volných polí
-    //   * může brát libovolný počet kamenů v cestě
+    //   * může chodit libovolně daleko po diagonále
+    //   * může brát i kameny, které nejsou hned vedle (přes více polí)
     function validateMove(player, r1, c1, r2, c2) {
       if (!isOnBoard(r1, c1) || !isOnBoard(r2, c2)) return { valid: false };
       const piece = board[r1][c1];
@@ -558,7 +603,7 @@
       const stepC = dc > 0 ? 1 : -1;
       const dist = Math.abs(dr);
 
-      // KRÁL
+      // KRÁL – volný pohyb + braní více nepřátel
       if (piece.king) {
         const captured = [];
         let r = r1 + stepR;
@@ -585,43 +630,26 @@
       const forwardDir = player === WHITE ? -1 : 1;
       if (stepR !== forwardDir) return { valid: false };
 
-      // jednoduchý tah o jedno pole
-      if (dist === 1) return { valid: true };
+      // jednoduchý tah o jedno pole (bez braní)
+      if (dist === 1) return { valid: true, capture: false, captured: [] };
 
-      // skok – možnost více kamenů, ale bez dvou soupeřů za sebou
-      const captured = [];
-      let r = r1 + stepR;
-      let c = c1 + stepC;
-      let lastWasEnemy = false;
-
-      while (!(r === r2 && c === c2)) {
-        const cell = board[r][c];
-
-        if (!cell) {
-          // prázdné pole – přerušuje řadu nepřátel
-          lastWasEnemy = false;
-        } else {
-          if (cell.player === player) {
-            // vlastní kámen blokuje cestu
-            return { valid: false };
-          } else {
-            // nepřítel
-            if (lastWasEnemy) {
-              // dva nepřátelé hned za sebou – zakázáno
-              return { valid: false };
-            }
-            captured.push({ r, c });
-            lastWasEnemy = true;
-          }
+      // braní – přes sousední kámen (skok o 2)
+      if (dist === 2) {
+        const midR = r1 + stepR;
+        const midC = c1 + stepC;
+        const midPiece = board[midR][midC];
+        if (midPiece && midPiece.player !== player) {
+          return {
+            valid: true,
+            capture: true,
+            captured: [{ r: midR, c: midC }],
+          };
         }
-
-        r += stepR;
-        c += stepC;
+        return { valid: false };
       }
 
-      if (captured.length === 0) return { valid: false };
-
-      return { valid: true, capture: true, captured };
+      // delší vzdálenost pro obyčejný kámen není povolena
+      return { valid: false };
     }
 
     function promoteIfNeeded(player, r, piece) {
@@ -654,13 +682,25 @@
     function attemptMove(player, r1, c1, r2, c2) {
       if (gameOver) return;
 
+      // zjistíme, zda existuje povinné braní
+      const { captureMoves, positions } = computeForcedCaptures(player);
+      const forced = captureMoves.length > 0;
+
       const res = validateMove(player, r1, c1, r2, c2);
-      if (!res.valid) {
+
+      // tah je neplatný, nebo je povinné braní a hráč nebere
+      if (!res.valid || (forced && !res.capture)) {
+        if (forced) {
+          updateInfo("Musíš brát kamenem, který může sebrat soupeře!");
+          flashForcedPieces(positions); // 3x bliknutí červeně
+        } else {
+          updateInfo();
+        }
         selected = null;
-        render();
         return;
       }
 
+      // tah je v pořádku (a pokud bylo povinné braní, tak je to braní)
       performMove(player, r1, c1, r2, c2, {
         capture: res.capture,
         captured: res.captured || []
@@ -668,10 +708,10 @@
 
       updateScore();
       selected = null;
-      render();
 
       const winner = checkWinner();
       if (winner) {
+        render();
         showWinner(winner);
         return;
       }
@@ -679,14 +719,17 @@
       if (gameMode === "vsAI") {
         if (player === WHITE) {
           currentPlayer = BLACK;
+          render();
           updateInfo();
           setTimeout(makeAIMove, 500);
         } else {
           currentPlayer = WHITE;
+          render();
           updateInfo();
         }
       } else {
         currentPlayer = (player === WHITE) ? BLACK : WHITE;
+        render();
         updateInfo();
       }
     }
@@ -701,6 +744,7 @@
         return;
       }
 
+      // AI už povinné braní dodržuje – vždy preferuje captureMoves
       const captureMoves = moves.filter(m => m.capture);
       const pool = captureMoves.length ? captureMoves : moves;
       const chosen = pool[Math.floor(Math.random() * pool.length)];
@@ -715,15 +759,16 @@
       );
 
       updateScore();
-      render();
 
       const winner = checkWinner();
       if (winner) {
+        render();
         showWinner(winner);
         return;
       }
 
       currentPlayer = WHITE;
+      render();
       updateInfo();
     }
 
