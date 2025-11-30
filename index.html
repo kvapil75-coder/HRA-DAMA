@@ -63,8 +63,8 @@
       margin-top: 15%;
       box-sizing: border-box;
       cursor: pointer;
-      position: relative;
-      display: block;
+      position: relative;   /* pro korunku */
+      display: block;       /* žádný flex, ať se nic nedeformuje */
       overflow: hidden;
     }
 
@@ -107,7 +107,7 @@
       Klikni na svoji figurku a pak na cílové pole. Automat hraje za <strong>ČERNÉ (⚫)</strong>.<br>
       Kámen, který dojde na konec, se změní na <strong>dámu 👑</strong> a může chodit i zpět a o více polí.
     </p>
-
+    
     <div id="score">
       <span id="scoreWhite">Bílý (⚪): 0</span> | 
       <span id="scoreBlack">Černý (⚫): 0</span>
@@ -118,7 +118,377 @@
   </div>
 
   <script>
-    /* JS omitted for brevity in this placeholder */
+    const boardEl = document.getElementById("board");
+    const infoEl = document.getElementById("info");
+    const scoreWhiteEl = document.getElementById("scoreWhite");
+    const scoreBlackEl = document.getElementById("scoreBlack");
+
+    const SIZE = 8;
+
+    // buňka: null nebo { player: "w"|"b", king: true|false }
+    let board = [];
+
+    const humanPlayer = "w"; // bílé
+    const aiPlayer = "b";    // černé
+    let currentPlayer = humanPlayer;
+    let selected = null; // {row, col} nebo null
+
+    // skóre: kolik figur soupeře hráč/AI sebrali
+    let scoreWhite = 0; // bílý sebral černé
+    let scoreBlack = 0; // černý sebral bílé
+
+    function createPiece(player, king = false) {
+      return { player, king };
+    }
+
+    function initBoard() {
+      // prázdná deska
+      board = Array.from({ length: SIZE }, () =>
+        Array.from({ length: SIZE }, () => null)
+      );
+
+      // černé figurky nahoře (řady 0–2) na tmavých polích
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if ((r + c) % 2 === 1) {
+            board[r][c] = createPiece("b", false);
+          }
+        }
+      }
+
+      // bílé figurky dole (řady 5–7) na tmavých polích
+      for (let r = 5; r < 8; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if ((r + c) % 2 === 1) {
+            board[r][c] = createPiece("w", false);
+          }
+        }
+      }
+
+      currentPlayer = humanPlayer;
+      selected = null;
+      scoreWhite = 0;
+      scoreBlack = 0;
+      updateScore();
+      render();
+      updateInfo();
+    }
+
+    function updateInfo(message) {
+      if (message) {
+        infoEl.textContent = message;
+        return;
+      }
+      if (currentPlayer === humanPlayer) {
+        infoEl.textContent = "Na tahu: BÍLÝ (ty)";
+      } else {
+        infoEl.textContent = "Na tahu: ČERNÝ (automat)";
+      }
+    }
+
+    function updateScore() {
+      scoreWhiteEl.textContent = `Bílý (⚪): ${scoreWhite}`;
+      scoreBlackEl.textContent = `Černý (⚫): ${scoreBlack}`;
+    }
+
+    function render() {
+      boardEl.innerHTML = "";
+
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const square = document.createElement("div");
+          square.classList.add("square");
+          square.classList.add((r + c) % 2 === 0 ? "light" : "dark");
+          square.dataset.row = r;
+          square.dataset.col = c;
+
+          if (selected && selected.row === r && selected.col === c) {
+            square.classList.add("selected");
+          }
+
+          const cell = board[r][c];
+          if (cell) {
+            const pieceEl = document.createElement("div");
+            pieceEl.classList.add("piece");
+            pieceEl.classList.add(cell.player === "w" ? "white" : "black");
+
+            if (cell.king) {
+              pieceEl.classList.add("king");
+              const crown = document.createElement("div");
+              crown.className = "crown";
+              crown.textContent = "👑";
+              pieceEl.appendChild(crown);
+            }
+
+            square.appendChild(pieceEl);
+          }
+
+          square.addEventListener("click", () => handleClick(r, c));
+          boardEl.appendChild(square);
+        }
+      }
+    }
+
+    function handleClick(row, col) {
+      // hráč smí tahat jen když je na tahu
+      if (currentPlayer !== humanPlayer) {
+        return;
+      }
+
+      const cell = board[row][col];
+
+      // když mám vybranou figurku a kliknu na jiné pole => pokus o tah
+      if (selected && (selected.row !== row || selected.col !== col)) {
+        attemptHumanMove(selected.row, selected.col, row, col);
+        return;
+      }
+
+      // vybrání své figurky
+      if (cell && cell.player === humanPlayer) {
+        selected = { row, col };
+        render();
+      }
+    }
+
+    function isOnBoard(r, c) {
+      return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+    }
+
+    // valider pohybu (pro hráče i AI)
+    function validateMove(player, r1, c1, r2, c2) {
+      if (!isOnBoard(r1, c1) || !isOnBoard(r2, c2)) {
+        return { valid: false };
+      }
+
+      const piece = board[r1][c1];
+      if (!piece || piece.player !== player) {
+        return { valid: false };
+      }
+
+      // cílové pole musí být prázdné
+      if (board[r2][c2] !== null) {
+        return { valid: false };
+      }
+
+      const dr = r2 - r1;
+      const dc = c2 - c1;
+
+      if (dr === 0 || Math.abs(dr) !== Math.abs(dc)) {
+        return { valid: false };
+      }
+
+      const stepR = dr > 0 ? 1 : -1;
+      const stepC = dc > 0 ? 1 : -1;
+      const dist = Math.abs(dr);
+
+      // --- PRAVIDLA PRO KRÁLE (king) ---
+      if (piece.king) {
+        const captured = [];
+        let r = r1 + stepR;
+        let c = c1 + stepC;
+
+        while (!(r === r2 && c === c2)) {
+          const cell = board[r][c];
+          if (cell) {
+            if (cell.player === player) {
+              // vlastní kámen v cestě = neplatné
+              return { valid: false };
+            } else {
+              // soupeřův kámen – přidáme do seznamu sebraných
+              captured.push({ r, c });
+            }
+          }
+          r += stepR;
+          c += stepC;
+        }
+
+        if (captured.length === 0) {
+          // prostý posun bez braní o více polí
+          return { valid: true };
+        } else {
+          // skok krále přes jeden nebo více soupeřových kamenů
+          return {
+            valid: true,
+            capture: true,
+            captured,
+          };
+        }
+      }
+
+      // --- PRAVIDLA PRO OBYČEJNÝ KÁMEN ---
+      const forwardDir = player === "w" ? -1 : 1;
+      if (stepR !== forwardDir) {
+        return { valid: false };
+      }
+
+      // jednoduchý tah (bez braní) – jen o jedno pole vpřed
+      if (dist === 1) {
+        return {
+          valid: true,
+        };
+      }
+
+      // přeskok – může přeskočit několik soupeřových kamenů po jedné diagonále vpřed
+      const captured = [];
+      let r = r1 + stepR;
+      let c = c1 + stepC;
+
+      while (!(r === r2 && c === c2)) {
+        const cell = board[r][c];
+
+        // musí být souvislá řada soupeřových kamenů
+        if (!cell || cell.player === player) {
+          return { valid: false };
+        }
+
+        captured.push({ r, c });
+        r += stepR;
+        c += stepC;
+      }
+
+      if (captured.length === 0) {
+        return { valid: false };
+      }
+
+      return {
+        valid: true,
+        capture: true,
+        captured,
+      };
+    }
+
+    function promoteIfNeeded(player, r, piece) {
+      if (!piece.king) {
+        if (player === "w" && r === 0) {
+          piece.king = true;
+        } else if (player === "b" && r === SIZE - 1) {
+          piece.king = true;
+        }
+      }
+    }
+
+    function attemptHumanMove(r1, c1, r2, c2) {
+      const cell = board[r1][c1];
+      if (!cell || cell.player !== humanPlayer) {
+        selected = null;
+        render();
+        return;
+      }
+
+      const res = validateMove(humanPlayer, r1, c1, r2, c2);
+      if (!res.valid) {
+        selected = null;
+        render();
+        return;
+      }
+
+      // provedeme tah
+      const piece = board[r1][c1];
+      board[r1][c1] = null;
+      board[r2][c2] = piece;
+
+      // braní
+      if (res.capture && res.captured) {
+        res.captured.forEach(pos => {
+          if (board[pos.r][pos.c] && board[pos.r][pos.c].player === aiPlayer) {
+            scoreWhite++;
+          }
+          board[pos.r][pos.c] = null;
+        });
+        updateScore();
+      }
+
+      // případná promoce na dámu
+      promoteIfNeeded(humanPlayer, r2, piece);
+
+      selected = null;
+      render();
+
+      // po hráčově tahu jde na řadu automat
+      currentPlayer = aiPlayer;
+      updateInfo();
+      setTimeout(() => {
+        makeAIMove();
+      }, 500);
+    }
+
+    // --- AI (jednoduchá, ale zná dámy & více-kamenové skoky v jedné linii) ---
+
+    function getAllMovesFor(player) {
+      const moves = [];
+
+      for (let r1 = 0; r1 < SIZE; r1++) {
+        for (let c1 = 0; c1 < SIZE; c1++) {
+          const cell = board[r1][c1];
+          if (!cell || cell.player !== player) continue;
+
+          // Zkusíme všechny cílové pozice na šachovnici
+          for (let r2 = 0; r2 < SIZE; r2++) {
+            for (let c2 = 0; c2 < SIZE; c2++) {
+              const res = validateMove(player, r1, c1, r2, c2);
+              if (res.valid) {
+                moves.push({
+                  from: { r: r1, c: c1 },
+                  to: { r: r2, c: c2 },
+                  capture: !!res.capture,
+                  captured: res.captured || [],
+                });
+              }
+            }
+          }
+        }
+      }
+
+      return moves;
+    }
+
+    function makeAIMove() {
+      const moves = getAllMovesFor(aiPlayer);
+      if (moves.length === 0) {
+        currentPlayer = humanPlayer;
+        updateInfo("Automat nemá žádný tah. Jsi na tahu dál.");
+        return;
+      }
+
+      // přednost mají tahy s braním
+      const captureMoves = moves.filter(m => m.capture);
+      let chosen;
+      if (captureMoves.length > 0) {
+        chosen = captureMoves[Math.floor(Math.random() * captureMoves.length)];
+      } else {
+        chosen = moves[Math.floor(Math.random() * moves.length)];
+      }
+
+      applyAIMove(chosen);
+      render();
+      updateScore();
+
+      // po tahu automatu je na řadě hráč
+      currentPlayer = humanPlayer;
+      updateInfo();
+    }
+
+    function applyAIMove(move) {
+      const from = move.from;
+      const to = move.to;
+      const piece = board[from.r][from.c];
+
+      board[from.r][from.c] = null;
+      board[to.r][to.c] = piece;
+
+      if (move.capture && move.captured) {
+        move.captured.forEach(pos => {
+          if (board[pos.r][pos.c] && board[pos.r][pos.c].player === humanPlayer) {
+            scoreBlack++;
+          }
+          board[pos.r][pos.c] = null;
+        });
+      }
+
+      promoteIfNeeded(aiPlayer, to.r, piece);
+    }
+
+    initBoard();
   </script>
 </body>
 </html>
