@@ -195,10 +195,32 @@
       display: none;
     }
 
+    #overlayContent {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
     #overlayText {
       font-size: 2.5rem;
       font-weight: 700;
       color: #fff;
+    }
+
+    #overlayNewGameBtn {
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #4caf50;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    #overlayNewGameBtn:hover {
+      background: #43a047;
     }
   </style>
 </head>
@@ -209,9 +231,9 @@
 
     <div id="topBar">
       <p style="margin:0;">
-        Hraješ za <strong>BÍLÉ ⚪</strong> a táhneš nahoru.<br>
-        Klikni na svoji figurku a pak na cílové pole. Automat hraje za <strong>ČERNÉ ⚫</strong>.<br>
-        Kámen na konci se změní na <strong>dámu 👑</strong> a může chodit i zpět i o více polí.
+        Hraješ za BÍLÉ ⚪ a táhneš nahoru.<br>
+        Klikni na svoji figurku a pak na cílové pole. Automat hraje za ČERNÉ ⚫.<br>
+        Kámen na konci se změní na dámu 👑 a může chodit i zpět i o více polí.
       </p>
       <button id="newGameBtn">Nová hra</button>
     </div>
@@ -242,7 +264,10 @@
 
     <!-- Overlay pro výhru -->
     <div id="overlay" class="hidden">
-      <div id="overlayText"></div>
+      <div id="overlayContent">
+        <div id="overlayText"></div>
+        <button id="overlayNewGameBtn">Nová hra</button>
+      </div>
     </div>
   </div>
 
@@ -253,6 +278,7 @@
     const scoreBlackEl = document.getElementById("scoreBlack");
     const overlayEl = document.getElementById("overlay");
     const overlayTextEl = document.getElementById("overlayText");
+    const overlayNewGameBtn = document.getElementById("overlayNewGameBtn");
     const newGameBtn = document.getElementById("newGameBtn");
 
     const capturedListWhiteEl = document.getElementById("capturedListWhite");
@@ -274,6 +300,10 @@
     let capturedBlackPieces = []; // vyřazené černé
 
     newGameBtn.addEventListener("click", () => {
+      initBoard();
+    });
+
+    overlayNewGameBtn.addEventListener("click", () => {
       initBoard();
     });
 
